@@ -3,8 +3,8 @@ import telebot
 from groq import Groq
 
 # Load tokens from Render environment variables
-TELEGRAM_TOKEN = os.getenv("8190871984:AAGuEQHDLri1luuj1Z0_y9-YTplj0pk35h8")
-GROQ_API_KEY = os.getenv("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")
+TELEGRAM_TOKEN = os.getenv("v("TELEGRAM_TOKEN")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # Safety check: ensure tokens exist
 if TELEGRAM_TOKEN is None:
@@ -40,3 +40,4 @@ def handle_message(message):
 
 # Start polling
 bot.polling(none_stop=True)
+
