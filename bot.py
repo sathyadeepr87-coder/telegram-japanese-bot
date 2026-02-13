@@ -1,43 +1,68 @@
+# bot.py
 import os
-import telebot
-from groq import Groq
+import logging
+import signal
+import sys
+from telegram import Update
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
-# Load tokens from Render environment variables
-TELEGRAM_TOKEN = os.getenv("v("TELEGRAM_TOKEN")
+# Logging
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+# Read environment variables (names must match exactly in Render)
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# Safety check: ensure tokens exist
-if TELEGRAM_TOKEN is None:
+# Debug check (prints only presence/length, never the token itself)
+if TELEGRAM_TOKEN:
+    logger.info("TELEGRAM_TOKEN is present; length: %d", len(TELEGRAM_TOKEN))
+else:
     raise ValueError("TELEGRAM_TOKEN is missing. Add it in Render → Environment.")
 
-if GROQ_API_KEY is None:
-    raise ValueError("GROQ_API_KEY is missing. Add it in Render → Environment.")
+if not GROQ_API_KEY:
+    logger.warning("GROQ_API_KEY is not set. If your bot needs it, add it in Render → Environment.")
 
-# Initialize Telegram bot and Groq client
-bot = telebot.TeleBot(TELEGRAM_TOKEN)
-client = Groq(api_key=GROQ_API_KEY)
+# Handlers
+def start(update: Update, context: CallbackContext):
+    update.message.reply_text("Hello! Bot is running.")
 
-def ask_groq(prompt: str) -> str:
-    """Send user message to Groq Llama3 model and return the response."""
-    completion = client.chat.completions.create(
-        model="llama3-8b-8192",
-        messages=[
-            {"role": "user", "content": prompt}
-        ]
-    )
-    return completion.choices[0].message["content"]
+def echo(update: Update, context: CallbackContext):
+    text = update.message.text or ""
+    update.message.reply_text(text)
 
-@bot.message_handler(func=lambda message: True)
-def handle_message(message):
-    user_text = message.text
+def error_handler(update: object, context: CallbackContext):
+    logger.exception("Exception while handling an update: %s", context.error)
 
-    try:
-        reply = ask_groq(user_text)
-    except Exception as e:
-        reply = f"Error contacting Groq: {e}"
+def main():
+    # Create the Updater and pass it your bot's token.
+    updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
+    dispatcher = updater.dispatcher
 
-    bot.send_message(message.chat.id, reply)
+    # Register handlers
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, echo))
+    dispatcher.add_error_handler(error_handler)
 
-# Start polling
-bot.polling(none_stop=True)
+    # Start the Bot
+    updater.start_polling()
+    logger.info("Bot started polling.")
 
+    # Graceful shutdown on SIGTERM (Render sends SIGTERM before stopping)
+    def shutdown(signum, frame):
+        logger.info("Shutdown signal received (%s). Stopping bot...", signum)
+        updater.stop()
+        updater.is_idle = False
+
+    signal.signal(signal.SIGTERM, shutdown)
+    signal.signal(signal.SIGINT, shutdown)
+
+    # Block until the bot is stopped
+    updater.idle()
+    logger.info("Bot stopped.")
+
+if __name__ == "__main__":
+    main()
