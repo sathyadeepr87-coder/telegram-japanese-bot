@@ -1,0 +1,13 @@
+# create files
+printf "python-3.10.12\n" > runtime.txt
+printf "python-telegram-bot==13.15\n" > requirements.txt
+
+# optional: create shim if needed
+cat > imghdr.py <<'PY'
+# paste the imghdr shim code here
+PY
+
+# stage and commit
+git add runtime.txt requirements.txt imghdr.py
+git commit -m "Pin Python runtime and add requirements; add temporary imghdr shim"
+git push origin main
